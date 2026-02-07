@@ -65,12 +65,12 @@
         const state = {
             products: [],
             // セッションストレージから月を読み込む、なければ現在月
-            currentMonth: parseInt(sessionStorage.getItem('currentMonth')) || (new Date().getMonth() + 1)
+            currentMonth: getInitialMonth()
         };
 
         // --- 初期化 ---
         async function init() {
-            setupMonthSelector();
+            setupMonthSelector('monthSelect', state.currentMonth);
             await loadData(); // データを取得
             renderCategoryGrid();
         }
@@ -137,17 +137,6 @@
                 <div class="last-updated">最終更新: ${lastUpdated}</div>
             `;
             return card;
-        }
-
-        function setupMonthSelector() {
-            const select = document.getElementById('monthSelect');
-            for (let i = 1; i <= 12; i++) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.textContent = `${i}月`;
-                if (i === state.currentMonth) option.selected = true;
-                select.appendChild(option);
-            }
         }
 
         // --- API通信 ---
