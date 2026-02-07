@@ -332,7 +332,7 @@
             setupMonthSelector();
             
             // 履歴管理の初期化
-            history.replaceState({ page: 'home' }, '', '');
+            history.replaceState({ page: 'home' }, '', null);
             window.addEventListener('popstate', (event) => {
                 if (event.state && event.state.page === 'list') {
                     showCategory(event.state.category, false);
@@ -364,7 +364,7 @@
         // リスト画面を表示
         window.showCategory = (categoryName, addHistory = true) => {
             if (addHistory) {
-                history.pushState({ page: 'list', category: categoryName }, '', `#${categoryName}`);
+                history.pushState({ page: 'list', category: categoryName }, '', null);
             }
             state.currentCategoryFilter = categoryName;
             document.getElementById('home-page').classList.remove('active');
