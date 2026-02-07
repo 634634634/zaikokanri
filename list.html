@@ -1,0 +1,290 @@
+<!-- c:\Users\owner\Desktop\バイブコーディング\在庫管理表\list.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在庫リスト</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* テーブル */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: middle; }
+        th { background-color: #4CAF50; color: white; white-space: nowrap; }
+
+        /* PC表示時の列調整 */
+        @media (min-width: 601px) {
+            th:nth-child(2), td:nth-child(2) {
+                width: 200px;
+                text-align: center;
+            }
+        }
+
+        /* スマホ向け最適化（テーブル変形部分のみ） */
+        @media (max-width: 600px) {
+            thead { display: none; }
+            
+            tr {
+                display: flex;
+                flex-wrap: wrap;
+                margin-bottom: 8px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                background: #fff;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            }
+            
+            td {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                padding: 4px 8px;
+                border-bottom: 1px solid #eee;
+                text-align: right;
+            }
+            
+            td:last-child { border-bottom: none; }
+            
+            td:nth-of-type(1) {
+                justify-content: flex-start;
+                text-align: left;
+                font-weight: bold;
+                font-size: 1rem;
+                padding: 8px;
+                flex: 1;
+                border-bottom: none;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            td:nth-of-type(2) {
+                flex: 0 0 auto;
+                border-bottom: none;
+                padding: 8px;
+            }
+            td:nth-of-type(3) {
+                flex-basis: 100%;
+                padding: 0 8px 8px 8px;
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="index.html" class="back-btn" style="margin-right: 5px; padding: 5px 10px;">↩</a>
+        <div style="flex-grow: 1; overflow: hidden;">
+            <div id="headerCategoryInfo" style="line-height: 1.2;">
+                <div id="headerCategoryName" style="font-weight:bold; font-size:1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">カテゴリ名</div>
+                <div id="headerLastUpdated" style="font-size:0.75rem; color:#666;"></div>
+            </div>
+        </div>
+        <div class="month-selector">
+            <label>対象月: </label>
+            <select id="monthSelect" onchange="changeMonth(this.value)"></select>
+            <button id="saveBtn" class="save-btn" onclick="saveAllChanges()" disabled>保存する</button>
+        </div>
+    </header>
+
+    <div id="toast" class="toast">保存しました</div>
+
+    <div id="list-page">
+        <table id="inventoryTable">
+            <thead>
+                <tr>
+                    <th>商品名</th>
+                    <th>在庫数 / 基準</th>
+                    <th>備考</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- JSで生成 -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="common.js"></script>
+    <script>
+        const state = {
+            products: [],
+            currentMonth: parseInt(sessionStorage.getItem('currentMonth')) || (new Date().getMonth() + 1),
+            currentCategory: '',
+            modifiedProductIds: new Set()
+        };
+
+        async function init() {
+            // URLパラメータからカテゴリを取得
+            const urlParams = new URLSearchParams(window.location.search);
+            state.currentCategory = urlParams.get('category');
+
+            if (!state.currentCategory) {
+                alert('カテゴリが指定されていません');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('headerCategoryName').textContent = state.currentCategory;
+            setupMonthSelector();
+            await loadData();
+            renderTable();
+        }
+
+        function setupMonthSelector() {
+            const select = document.getElementById('monthSelect');
+            select.innerHTML = '';
+            for (let i = 1; i <= 12; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `${i}月`;
+                if (i === state.currentMonth) option.selected = true;
+                select.appendChild(option);
+            }
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch(API_URL);
+                state.products = await response.json();
+            } catch (error) {
+                console.error('データ取得エラー:', error);
+                alert('データの読み込みに失敗しました。');
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.querySelector('#inventoryTable tbody');
+            tbody.innerHTML = '';
+
+            const filteredProducts = state.products.filter(p => p.category === state.currentCategory);
+            document.getElementById('headerLastUpdated').textContent = '';
+
+            filteredProducts.forEach(product => {
+                const threshold = getThreshold(product, state.currentMonth);
+                const lowStock = isLowStock(product, state.currentMonth);
+
+                const tr = document.createElement('tr');
+                if (lowStock) tr.classList.add('low-stock');
+
+                const lastUpdated = formatDateShort(product.lastUpdated);
+
+                tr.innerHTML = `
+                    <td>
+                        <div>${product.name}</div>
+                        <div style="font-size: 0.75rem; color: #999; font-weight: normal; margin-top: 2px;">更新: ${lastUpdated}</div>
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
+                            <input type="number" value="${product.stock}" min="0" oninput="updateStock(${product.id}, this)" onfocus="this.select()">
+                            <span style="color:#666; font-size:0.9rem;">/ ${threshold}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <textarea rows="1" placeholder="備考" onchange="updateRemarks(${product.id}, this.value)" oninput="autoResize(this)">${product.remarks}</textarea>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
+        window.changeMonth = (val) => {
+            state.currentMonth = parseInt(val, 10);
+            sessionStorage.setItem('currentMonth', state.currentMonth); // 設定を保存
+            renderTable();
+        };
+
+        window.updateStock = (id, inputElement) => {
+            const newValue = inputElement.value;
+            const product = state.products.find(p => p.id === id);
+            if (product) {
+                product.stock = parseInt(newValue, 10);
+                if (isNaN(product.stock)) product.stock = 0;
+
+                const lowStock = isLowStock(product, state.currentMonth);
+                const tr = inputElement.closest('tr');
+                if (tr) {
+                    lowStock ? tr.classList.add('low-stock') : tr.classList.remove('low-stock');
+                }
+                markAsModified(id);
+            }
+        };
+
+        window.updateRemarks = (id, newText) => {
+            const product = state.products.find(p => p.id === id);
+            if (product) {
+                product.remarks = newText;
+                markAsModified(id);
+            }
+        };
+
+        function markAsModified(id) {
+            state.modifiedProductIds.add(id);
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = false;
+            btn.textContent = `保存する (${state.modifiedProductIds.size})`;
+        }
+
+        window.saveAllChanges = async () => {
+            const btn = document.getElementById('saveBtn');
+            if (state.modifiedProductIds.size === 0) return;
+
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+
+            try {
+                const updates = [];
+                state.modifiedProductIds.forEach(id => {
+                    const p = state.products.find(prod => prod.id === id);
+                    if (p) {
+                        updates.push({ id: p.id, stock: p.stock, remarks: p.remarks });
+                    }
+                });
+
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(updates)
+                });
+
+                await loadData();
+                state.modifiedProductIds.clear();
+                btn.textContent = '保存する';
+                showToast('保存しました');
+            } catch (e) {
+                console.error(e);
+                alert('保存中にエラーが発生しました');
+                btn.disabled = false;
+                btn.textContent = `保存する (${state.modifiedProductIds.size})`;
+            }
+        };
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        window.addEventListener('beforeunload', (e) => {
+            if (state.modifiedProductIds.size > 0) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>
