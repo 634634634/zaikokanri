@@ -135,9 +135,6 @@
             }
 
             document.getElementById('headerCategoryName').textContent = state.currentCategory;
-            setupMonthSelector();
-            await loadData();
-
             // ブラウザの戻るボタン対策（履歴スタック操作）
             // ページ読み込み時に履歴を追加し、戻る操作をpopstateイベントで検知できるようにする
             history.pushState(null, null, location.href);
@@ -152,6 +149,9 @@
                 // 変更がない、または破棄してよい場合は一覧に戻る
                 window.location.href = 'index.html';
             });
+
+            setupMonthSelector();
+            await loadData();
 
             renderTable();
         }
