@@ -58,6 +58,9 @@
 
     <script src="common.js"></script>
     <script>
+        // データの取得を先行して開始（表示速度向上）
+        const fetchPromise = API_URL ? fetch(API_URL).then(r => r.json()) : null;
+
         // 状態管理
         const state = {
             products: [],
@@ -87,6 +90,8 @@
             const grid = document.getElementById('categoryGrid');
             grid.innerHTML = '';
 
+            const fragment = document.createDocumentFragment(); // 描画高速化用
+
             // カテゴリごとに商品をグループ化
             const categoryGroups = state.products.reduce((groups, product) => {
                 const cat = product.category;
@@ -98,8 +103,10 @@
             // カテゴリ名でソートして表示
             Object.keys(categoryGroups).sort().forEach(cat => {
                 const card = createCategoryCard(cat, categoryGroups[cat]);
-                grid.appendChild(card);
+                fragment.appendChild(card);
             });
+
+            grid.appendChild(fragment); // まとめて追加
         }
 
         // カテゴリカードの生成
@@ -153,8 +160,8 @@
                 // 読み込み中表示（簡易）
                 document.getElementById('categoryGrid').innerHTML = '<p style="text-align:center;">データを読み込み中...</p>';
                 
-                const response = await fetch(API_URL);
-                state.products = await response.json();
+                // 先行して開始した通信の結果を待つ
+                state.products = await fetchPromise;
             } catch (error) {
                 console.error('データ取得エラー:', error);
                 alert('データの読み込みに失敗しました。');
