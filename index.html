@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>在庫管理システム</title>
+    <title>在庫管理システム（カテゴリ別）</title>
     <style>
         body {
             font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
@@ -110,6 +110,14 @@
 
         th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: middle; }
         th { background-color: #4CAF50; color: white; white-space: nowrap; }
+
+        /* PC表示時の列調整 */
+        @media (min-width: 601px) {
+            th:nth-child(2), td:nth-child(2) {
+                width: 200px; /* 在庫/基準列の幅を確保 */
+                text-align: center;
+            }
+        }
 
         input[type="number"] { padding: 5px; width: 60px; border: 1px solid #ccc; border-radius: 4px; text-align: right; }
         textarea { width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box; font-size: 0.9rem;}
@@ -264,7 +272,7 @@
 <body>
 
     <header>
-        <button id="headerBackBtn" class="back-btn" onclick="showHome()" style="display:none; margin-right: 5px; padding: 5px 10px;">↩</button>
+        <button id="headerBackBtn" class="back-btn" onclick="history.back()" style="display:none; margin-right: 5px; padding: 5px 10px;">↩</button>
         <div style="flex-grow: 1; overflow: hidden;">
             <h1 id="appTitle">📦 在庫管理システム</h1>
             <div id="headerCategoryInfo" style="display:none; line-height: 1.2;">
@@ -311,16 +319,28 @@
         // ★ここにGASのウェブアプリURLを貼り付けてください★
         const API_URL = 'https://script.google.com/macros/s/AKfycbwiMX9rD1Vd9XhrnRZaAzuYtFgg611a1vDrIHvhHdluiX8E54nc4jtdBcABdUF8BXGq/exec'; 
 
-        let products = [];
-        let currentMonth = new Date().getMonth() + 1;
-        let currentCategoryFilter = null; // 現在表示中のカテゴリ（nullならホーム画面）
-        
-        // 変更管理用
-        let modifiedProductIds = new Set();
+        // 状態管理
+        const state = {
+            products: [],
+            currentMonth: new Date().getMonth() + 1,
+            currentCategoryFilter: null, // 現在表示中のカテゴリ（nullならホーム画面）
+            modifiedProductIds: new Set()
+        };
 
         // --- 初期化 ---
         async function init() {
             setupMonthSelector();
+            
+            // 履歴管理の初期化
+            history.replaceState({ page: 'home' }, '', '');
+            window.addEventListener('popstate', (event) => {
+                if (event.state && event.state.page === 'list') {
+                    showCategory(event.state.category, false);
+                } else {
+                    showHome();
+                }
+            });
+
             await loadData(); // データを取得
             showHome(); // 最初はホーム画面を表示
         }
@@ -329,7 +349,7 @@
         
         // ホーム画面を表示
         window.showHome = () => {
-            currentCategoryFilter = null;
+            state.currentCategoryFilter = null;
             document.getElementById('list-page').classList.remove('active');
             document.getElementById('home-page').classList.add('active');
             
@@ -342,8 +362,11 @@
         };
 
         // リスト画面を表示
-        window.showCategory = (categoryName) => {
-            currentCategoryFilter = categoryName;
+        window.showCategory = (categoryName, addHistory = true) => {
+            if (addHistory) {
+                history.pushState({ page: 'list', category: categoryName }, '', `#${categoryName}`);
+            }
+            state.currentCategoryFilter = categoryName;
             document.getElementById('home-page').classList.remove('active');
             document.getElementById('list-page').classList.add('active');
             
@@ -364,15 +387,14 @@
             grid.innerHTML = '';
 
             // カテゴリの一覧を取得
-            const categories = [...new Set(products.map(p => p.category))].sort();
+            const categories = [...new Set(state.products.map(p => p.category))].sort();
 
             categories.forEach(cat => {
                 // そのカテゴリに含まれる製品を取得
-                const items = products.filter(p => p.category === cat);
+                const items = state.products.filter(p => p.category === cat);
                 // 在庫不足のアイテムがあるかチェック
                 const alerts = items.filter(p => {
-                    const threshold = getThreshold(p, currentMonth);
-                    return p.stock < threshold;
+                    return isLowStock(p);
                 }).length;
 
                 // ★カテゴリ内の商品から最新の更新日時を探す
@@ -407,16 +429,16 @@
             tbody.innerHTML = '';
 
             // 選択中のカテゴリでフィルタリング
-            const filteredProducts = products.filter(p => p.category === currentCategoryFilter);
+            const filteredProducts = state.products.filter(p => p.category === state.currentCategoryFilter);
 
             document.getElementById('headerLastUpdated').textContent = '';
 
             filteredProducts.forEach(product => {
-                const threshold = getThreshold(product, currentMonth);
-                const isLowStock = product.stock < threshold;
+                const threshold = getThreshold(product, state.currentMonth);
+                const lowStock = isLowStock(product);
 
                 const tr = document.createElement('tr');
-                if (isLowStock) tr.classList.add('low-stock');
+                if (lowStock) tr.classList.add('low-stock');
 
                 const lastUpdated = formatDateShort(product.lastUpdated);
 
@@ -426,7 +448,7 @@
                         <div style="font-size: 0.75rem; color: #999; font-weight: normal; margin-top: 2px;">更新: ${lastUpdated}</div>
                     </td>
                     <td>
-                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 5px;">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
                             <input type="number" value="${product.stock}" min="0" oninput="updateStock(${product.id}, this)" onfocus="this.select()">
                             <span style="color:#666; font-size:0.9rem;">/ ${threshold}</span>
                         </div>
@@ -461,13 +483,18 @@
             return product.defaultThreshold;
         }
 
+        function isLowStock(product) {
+            const threshold = getThreshold(product, state.currentMonth);
+            return product.stock < threshold;
+        }
+
         function setupMonthSelector() {
             const select = document.getElementById('monthSelect');
             for (let i = 1; i <= 12; i++) {
                 const option = document.createElement('option');
                 option.value = i;
                 option.textContent = `${i}月`;
-                if (i === currentMonth) option.selected = true;
+                if (i === state.currentMonth) option.selected = true;
                 select.appendChild(option);
             }
         }
@@ -483,7 +510,7 @@
                 document.getElementById('categoryGrid').innerHTML = '<p style="text-align:center;">データを読み込み中...</p>';
                 
                 const response = await fetch(API_URL);
-                products = await response.json();
+                state.products = await response.json();
             } catch (error) {
                 console.error('データ取得エラー:', error);
                 alert('データの読み込みに失敗しました。');
@@ -503,9 +530,9 @@
         // --- イベントハンドラ ---
 
         window.changeMonth = (val) => {
-            currentMonth = parseInt(val, 10);
+            state.currentMonth = parseInt(val, 10);
             // 現在表示中の画面に合わせて再描画
-            if (currentCategoryFilter) {
+            if (state.currentCategoryFilter) {
                 renderTable();
             } else {
                 renderCategoryGrid();
@@ -514,17 +541,16 @@
 
         window.updateStock = (id, inputElement) => {
             const newValue = inputElement.value;
-            const product = products.find(p => p.id === id);
+            const product = state.products.find(p => p.id === id);
             if (product) {
                 product.stock = parseInt(newValue, 10);
                 if (isNaN(product.stock)) product.stock = 0; // 空欄等の対策
 
                 // 色判定の更新（再描画せずにDOMを直接操作してフォーカスを維持）
-                const threshold = getThreshold(product, currentMonth);
-                const isLowStock = product.stock < threshold;
+                const lowStock = isLowStock(product);
                 const tr = inputElement.closest('tr');
                 if (tr) {
-                    isLowStock ? tr.classList.add('low-stock') : tr.classList.remove('low-stock');
+                    lowStock ? tr.classList.add('low-stock') : tr.classList.remove('low-stock');
                 }
 
                 markAsModified(id); // 変更を記録
@@ -532,7 +558,7 @@
         };
 
         window.updateRemarks = (id, newText) => {
-            const product = products.find(p => p.id === id);
+            const product = state.products.find(p => p.id === id);
             if (product) {
                 // 備考欄の高さ調整のため、データ更新のみで再描画はしない
                 product.remarks = newText;
@@ -542,16 +568,16 @@
 
         // 変更があったことを記録し、保存ボタンを有効化
         function markAsModified(id) {
-            modifiedProductIds.add(id);
+            state.modifiedProductIds.add(id);
             const btn = document.getElementById('saveBtn');
             btn.disabled = false;
-            btn.textContent = `保存する (${modifiedProductIds.size})`;
+            btn.textContent = `保存する (${state.modifiedProductIds.size})`;
         }
 
         // 一括保存処理
         window.saveAllChanges = async () => {
             const btn = document.getElementById('saveBtn');
-            if (modifiedProductIds.size === 0) return;
+            if (state.modifiedProductIds.size === 0) return;
 
             btn.disabled = true;
             btn.textContent = '保存中...';
@@ -560,8 +586,8 @@
                 const updates = [];
 
                 // 変更されたデータを収集
-                modifiedProductIds.forEach(id => {
-                    const p = products.find(prod => prod.id === id);
+                state.modifiedProductIds.forEach(id => {
+                    const p = state.products.find(prod => prod.id === id);
                     if (p) {
                         updates.push({ id: p.id, stock: p.stock, remarks: p.remarks });
                     }
@@ -574,7 +600,7 @@
                 await loadData();
 
                 // 状態リセット
-                modifiedProductIds.clear();
+                state.modifiedProductIds.clear();
                 btn.textContent = '保存する';
                 showToast('保存しました');
 
@@ -582,7 +608,7 @@
                 console.error(e);
                 alert('保存中にエラーが発生しました');
                 btn.disabled = false;
-                btn.textContent = `保存する (${modifiedProductIds.size})`;
+                btn.textContent = `保存する (${state.modifiedProductIds.size})`;
             }
         };
 
@@ -595,6 +621,14 @@
                 toast.classList.remove('show');
             }, 3000); // 3秒後に非表示
         }
+
+        // 未保存の変更がある場合に警告を表示
+        window.addEventListener('beforeunload', (e) => {
+            if (state.modifiedProductIds.size > 0) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
 
         // 開始
         init();
