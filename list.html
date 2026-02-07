@@ -80,7 +80,7 @@
 <body>
 
     <header>
-        <a href="index.html" class="back-btn" style="margin-right: 5px; padding: 5px 10px;">↩</a>
+        <a href="javascript:void(0)" onclick="goBack()" class="back-btn" style="margin-right: 5px; padding: 5px 10px;">↩</a>
         <div style="flex-grow: 1; overflow: hidden;">
             <div id="headerCategoryInfo" style="line-height: 1.2;">
                 <div id="headerCategoryName" style="font-weight:bold; font-size:1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">カテゴリ名</div>
@@ -138,13 +138,19 @@
             setupMonthSelector();
             await loadData();
 
-            // 戻るボタンの制御（スマホ等でbeforeunloadが効きにくい対策）
-            document.querySelector('.back-btn').addEventListener('click', (e) => {
+            // ブラウザの戻るボタン対策（履歴スタック操作）
+            // ページ読み込み時に履歴を追加し、戻る操作をpopstateイベントで検知できるようにする
+            history.pushState(null, null, location.href);
+            window.addEventListener('popstate', (e) => {
                 if (state.modifiedProductIds.size > 0) {
                     if (!confirm('未保存の変更があります。保存せずに移動しますか？')) {
-                        e.preventDefault();
+                        // キャンセル：履歴を再度追加してページに留まる（戻る操作を打ち消す）
+                        history.pushState(null, null, location.href);
+                        return;
                     }
                 }
+                // 変更がない、または破棄してよい場合は一覧に戻る
+                window.location.href = 'index.html';
             });
 
             renderTable();
@@ -244,6 +250,16 @@
                 product.remarks = newText;
                 markAsModified(id);
             }
+        };
+
+        // アプリ内の戻るボタン用関数
+        window.goBack = () => {
+            if (state.modifiedProductIds.size > 0) {
+                if (!confirm('未保存の変更があります。保存せずに移動しますか？')) {
+                    return;
+                }
+            }
+            window.location.href = 'index.html';
         };
 
         function markAsModified(id) {
