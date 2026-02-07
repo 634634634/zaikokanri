@@ -80,7 +80,7 @@
 <body>
 
     <header>
-        <a href="javascript:void(0)" onclick="goBack()" class="back-btn" style="margin-right: 5px; padding: 5px 10px;">↩</a>
+        <a href="index.html" class="back-btn" style="margin-right: 5px; padding: 5px 10px;">↩</a>
         <div style="flex-grow: 1; overflow: hidden;">
             <div id="headerCategoryInfo" style="line-height: 1.2;">
                 <div id="headerCategoryName" style="font-weight:bold; font-size:1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">カテゴリ名</div>
@@ -118,7 +118,7 @@
 
         const state = {
             products: [],
-            currentMonth: parseInt(sessionStorage.getItem('currentMonth')) || (new Date().getMonth() + 1),
+            currentMonth: getInitialMonth(),
             currentCategory: '',
             modifiedProductIds: new Set()
         };
@@ -135,37 +135,9 @@
             }
 
             document.getElementById('headerCategoryName').textContent = state.currentCategory;
-            // ブラウザの戻るボタン対策（履歴スタック操作）
-            // ページ読み込み時に履歴を追加し、戻る操作をpopstateイベントで検知できるようにする
-            history.pushState(null, null, location.href);
-            window.addEventListener('popstate', (e) => {
-                if (state.modifiedProductIds.size > 0) {
-                    if (!confirm('未保存の変更があります。保存せずに移動しますか？')) {
-                        // キャンセル：履歴を再度追加してページに留まる（戻る操作を打ち消す）
-                        history.pushState(null, null, location.href);
-                        return;
-                    }
-                }
-                // 変更がない、または破棄してよい場合は一覧に戻る
-                window.location.href = 'index.html';
-            });
-
-            setupMonthSelector();
+            setupMonthSelector('monthSelect', state.currentMonth);
             await loadData();
-
             renderTable();
-        }
-
-        function setupMonthSelector() {
-            const select = document.getElementById('monthSelect');
-            select.innerHTML = '';
-            for (let i = 1; i <= 12; i++) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.textContent = `${i}月`;
-                if (i === state.currentMonth) option.selected = true;
-                select.appendChild(option);
-            }
         }
 
         async function loadData() {
@@ -203,7 +175,7 @@
                     </td>
                     <td>
                         <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
-                            <input type="number" value="${product.stock}" min="0" oninput="updateStock(${product.id}, this)" onfocus="this.select()">
+                            <input type="number" value="${product.stock}" min="0" oninput="updateStock(${product.id}, this)" onfocus="this.select()" onkeydown="handleEnterKey(event, this)">
                             <span style="color:#666; font-size:0.9rem;">/ ${threshold}</span>
                         </div>
                     </td>
@@ -252,15 +224,33 @@
             }
         };
 
-        // アプリ内の戻るボタン用関数
-        window.goBack = () => {
-            if (state.modifiedProductIds.size > 0) {
-                if (!confirm('未保存の変更があります。保存せずに移動しますか？')) {
-                    return;
+        function handleEnterKey(event, currentInput) {
+            if (event.key === 'Enter' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                const currentRow = currentInput.closest('tr');
+                const nextRow = currentRow.nextElementSibling;
+                if (nextRow) {
+                    const nextInput = nextRow.querySelector('input[type="number"]');
+                    if (nextInput) {
+                        nextInput.focus();
+                        nextInput.select();
+                    }
+                } else {
+                    currentInput.blur(); // 最後の行の場合はフォーカスを外す
+                }
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                const currentRow = currentInput.closest('tr');
+                const prevRow = currentRow.previousElementSibling;
+                if (prevRow) {
+                    const prevInput = prevRow.querySelector('input[type="number"]');
+                    if (prevInput) {
+                        prevInput.focus();
+                        prevInput.select();
+                    }
                 }
             }
-            window.location.href = 'index.html';
-        };
+        }
 
         function markAsModified(id) {
             state.modifiedProductIds.add(id);
@@ -285,11 +275,7 @@
                     }
                 });
 
-                await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify(updates)
-                });
+                await postData(updates);
 
                 await loadData();
                 state.modifiedProductIds.clear();
