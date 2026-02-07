@@ -113,6 +113,9 @@
 
     <script src="common.js"></script>
     <script>
+        // データの取得を先行して開始（表示速度向上）
+        const fetchPromise = API_URL ? fetch(API_URL).then(r => r.json()) : null;
+
         const state = {
             products: [],
             currentMonth: parseInt(sessionStorage.getItem('currentMonth')) || (new Date().getMonth() + 1),
@@ -134,6 +137,16 @@
             document.getElementById('headerCategoryName').textContent = state.currentCategory;
             setupMonthSelector();
             await loadData();
+
+            // 戻るボタンの制御（スマホ等でbeforeunloadが効きにくい対策）
+            document.querySelector('.back-btn').addEventListener('click', (e) => {
+                if (state.modifiedProductIds.size > 0) {
+                    if (!confirm('未保存の変更があります。保存せずに移動しますか？')) {
+                        e.preventDefault();
+                    }
+                }
+            });
+
             renderTable();
         }
 
@@ -151,8 +164,8 @@
 
         async function loadData() {
             try {
-                const response = await fetch(API_URL);
-                state.products = await response.json();
+                // 先行して開始した通信の結果を待つ
+                state.products = await fetchPromise;
             } catch (error) {
                 console.error('データ取得エラー:', error);
                 alert('データの読み込みに失敗しました。');
@@ -162,6 +175,8 @@
         function renderTable() {
             const tbody = document.querySelector('#inventoryTable tbody');
             tbody.innerHTML = '';
+
+            const fragment = document.createDocumentFragment(); // 描画高速化用
 
             const filteredProducts = state.products.filter(p => p.category === state.currentCategory);
             document.getElementById('headerLastUpdated').textContent = '';
@@ -190,8 +205,10 @@
                         <textarea rows="1" placeholder="備考" onchange="updateRemarks(${product.id}, this.value)" oninput="autoResize(this)">${product.remarks}</textarea>
                     </td>
                 `;
-                tbody.appendChild(tr);
+                fragment.appendChild(tr);
             });
+
+            tbody.appendChild(fragment); // まとめて追加
         }
 
         function autoResize(textarea) {
