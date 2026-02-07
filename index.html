@@ -3,55 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>在庫管理システム（カテゴリ別）</title>
+    <title>在庫管理システム</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        body {
-            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 10px;
-            background-color: #f5f7fa;
-            color: #333;
-        }
-
-        /* ヘッダーエリア */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #e0e0e0;
-            position: sticky; /* ヘッダーを追従させる */
-            top: 0;
-            z-index: 1000;
-            background-color: #f5f7fa; /* 背景色を指定して透けないようにする */
-        }
-
-        h1 { margin: 0; font-size: 1.5rem; }
-
-        /* 月選択（共通パーツ） */
-        .month-selector select {
-            padding: 5px 10px;
-            font-size: 1rem;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-        }
-
-        /* ▼▼▼ 画面切り替え用スタイル ▼▼▼ */
-        .page {
-            display: none; /* デフォルトで非表示 */
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        .page.active {
-            display: block; /* activeクラスがつくと表示 */
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
         /* ▼▼▼ ホーム画面（カテゴリカード）のデザイン ▼▼▼ */
         .category-grid {
             display: grid;
@@ -80,303 +34,50 @@
         .category-card h3 { margin: 0 0 10px 0; color: #4CAF50; }
         .category-card .count { color: #666; font-size: 0.9rem; }
         .category-card .alert { color: #d8000c; font-weight: bold; font-size: 0.8rem; display: block; margin-top: 5px;}
-
-        /* ▼▼▼ リスト画面のデザイン ▼▼▼ */
-        .list-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .back-btn {
-            background-color: #666;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        .back-btn:hover { background-color: #444; }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background-color: #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: middle; }
-        th { background-color: #4CAF50; color: white; white-space: nowrap; }
-
-        /* PC表示時の列調整 */
-        @media (min-width: 601px) {
-            th:nth-child(2), td:nth-child(2) {
-                width: 200px; /* 在庫/基準列の幅を確保 */
-                text-align: center;
-            }
-        }
-
-        input[type="number"] { padding: 5px; width: 60px; border: 1px solid #ccc; border-radius: 4px; text-align: right; }
-        textarea { width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; box-sizing: border-box; font-size: 0.9rem;}
-
-        .low-stock { background-color: #ffe6e6; color: #d8000c; }
-        .low-stock input, .low-stock textarea { border-color: #d8000c; background-color: #fff0f0; }
-
-        /* ▼▼▼ 保存ボタンのスタイル ▼▼▼ */
-        .save-btn {
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        .save-btn:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-        .save-btn:hover:not(:disabled) {
-            background-color: #0b7dda;
-        }
-        .last-updated {
-            font-size: 0.8rem;
-            color: #888;
-            margin-top: 8px;
-            border-top: 1px solid #eee;
-            padding-top: 5px;
-        }
-
-        /* ▼▼▼ トースト通知のスタイル ▼▼▼ */
-        .toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 4px;
-            padding: 16px;
-            position: fixed;
-            z-index: 2000;
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: 30px;
-            opacity: 0;
-            transition: opacity 0.5s, bottom 0.5s, visibility 0.5s;
-        }
-        .toast.show {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        /* ▼▼▼ スマホ向け最適化（レスポンシブ） ▼▼▼ */
-        @media (max-width: 600px) {
-            header {
-                flex-direction: row; /* 1行に並べる */
-                flex-wrap: nowrap;
-                gap: 8px;
-                padding: 10px 5px;
-            }
-            
-            h1 { font-size: 1.2rem; }
-
-            .month-selector {
-                display: flex;
-                justify-content: flex-end;
-                align-items: center;
-                flex-grow: 1;
-            }
-            
-            .month-selector select {
-                width: auto;
-                margin: 0 5px;
-            }
-
-            /* テーブルをカード型レイアウトに変更 */
-            thead { display: none; }
-            
-            tr {
-                display: block;
-                display: flex; /* Flexboxに変更 */
-                flex-wrap: wrap;
-                margin-bottom: 8px;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                background: #fff;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            }
-            
-            td {
-                display: flex;
-                justify-content: space-between;
-                align-items: baseline;
-                padding: 4px 8px;
-                border-bottom: 1px solid #eee;
-                text-align: right;
-            }
-            
-            td:last-child { border-bottom: none; }
-            
-            /* ラベルの表示 */
-            td::before {
-                content: attr(data-label);
-                font-weight: bold;
-                color: #555;
-                text-align: left;
-                margin-right: 10px;
-            }
-            
-            /* CSSでラベルを指定 */
-            /* 商品コード削除に伴いインデックスを修正 */
-            td:nth-of-type(1) {
-                justify-content: flex-start;
-                text-align: left;
-                font-weight: bold;
-                font-size: 1rem;
-                padding: 8px;
-                flex: 1; /* 幅を可変に */
-                border-bottom: none;
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            td:nth-of-type(1)::before { content: none; }
-            td:nth-of-type(2) {
-                flex: 0 0 auto; /* 幅を中身に合わせる */
-                border-bottom: none;
-                padding: 8px;
-            }
-            td:nth-of-type(2)::before { content: none; }
-            td:nth-of-type(3) {
-                flex-basis: 100%; /* 改行して全幅 */
-                padding: 0 8px 8px 8px;
-                border-bottom: none;
-            }
-            td:nth-of-type(3)::before { content: none; }
-            
-            input[type="number"], textarea {
-                font-size: 16px; /* iOSでのズーム防止 */
-            }
-            
-            .list-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-        }
     </style>
 </head>
 <body>
 
     <header>
-        <button id="headerBackBtn" class="back-btn" onclick="history.back()" style="display:none; margin-right: 5px; padding: 5px 10px;">↩</button>
         <div style="flex-grow: 1; overflow: hidden;">
             <h1 id="appTitle">📦 在庫管理システム</h1>
-            <div id="headerCategoryInfo" style="display:none; line-height: 1.2;">
-                <div id="headerCategoryName" style="font-weight:bold; font-size:1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
-                <div id="headerLastUpdated" style="font-size:0.75rem; color:#666;"></div>
-            </div>
         </div>
         <div class="month-selector">
             <label>対象月: </label>
             <select id="monthSelect" onchange="changeMonth(this.value)"></select>
-            <button id="saveBtn" class="save-btn" onclick="saveAllChanges()" disabled>保存する</button>
         </div>
     </header>
 
-    <!-- トースト通知用の要素 -->
-    <div id="toast" class="toast">保存しました</div>
-
     <!-- ▼▼▼ 1ページ目：ホーム（カテゴリ一覧） ▼▼▼ -->
-    <div id="home-page" class="page active">
+    <div id="home-page">
         <h2>カテゴリを選択してください</h2>
         <div id="categoryGrid" class="category-grid">
             <!-- JSでカードを生成 -->
         </div>
     </div>
 
-    <!-- ▼▼▼ 2ページ目：リスト（製品一覧） ▼▼▼ -->
-    <div id="list-page" class="page">
-        <table id="inventoryTable">
-            <thead>
-                <tr>
-                    <th>商品名</th>
-                    <th>在庫数 / 基準</th>
-                    <th>備考</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- JSで生成 -->
-            </tbody>
-        </table>
-    </div>
-
+    <script src="common.js"></script>
     <script>
-        // --- データ定義 ---
-        // ★ここにGASのウェブアプリURLを貼り付けてください★
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwiMX9rD1Vd9XhrnRZaAzuYtFgg611a1vDrIHvhHdluiX8E54nc4jtdBcABdUF8BXGq/exec'; 
-
         // 状態管理
         const state = {
             products: [],
-            currentMonth: new Date().getMonth() + 1,
-            currentCategoryFilter: null, // 現在表示中のカテゴリ（nullならホーム画面）
-            modifiedProductIds: new Set()
+            // セッションストレージから月を読み込む、なければ現在月
+            currentMonth: parseInt(sessionStorage.getItem('currentMonth')) || (new Date().getMonth() + 1)
         };
 
         // --- 初期化 ---
         async function init() {
             setupMonthSelector();
-            
-            // 履歴管理の初期化
-            history.replaceState({ page: 'home' }, '', null);
-            window.addEventListener('popstate', (event) => {
-                if (event.state && event.state.page === 'list') {
-                    showCategory(event.state.category, false);
-                } else {
-                    showHome();
-                }
-            });
-
             await loadData(); // データを取得
-            showHome(); // 最初はホーム画面を表示
+            renderCategoryGrid();
         }
 
         // --- 画面遷移ロジック ---
         
-        // ホーム画面を表示
-        window.showHome = () => {
-            state.currentCategoryFilter = null;
-            document.getElementById('list-page').classList.remove('active');
-            document.getElementById('home-page').classList.add('active');
-            
-            // ヘッダー表示切り替え
-            document.getElementById('appTitle').style.display = 'block';
-            document.getElementById('headerCategoryInfo').style.display = 'none';
-            document.getElementById('headerBackBtn').style.display = 'none';
-            
-            renderCategoryGrid(); // 最新の在庫状況を反映してカードを描画
-        };
-
         // リスト画面を表示
-        window.showCategory = (categoryName, addHistory = true) => {
-            if (addHistory) {
-                history.pushState({ page: 'list', category: categoryName }, '', null);
-            }
-            state.currentCategoryFilter = categoryName;
-            document.getElementById('home-page').classList.remove('active');
-            document.getElementById('list-page').classList.add('active');
-            
-            // ヘッダー表示切り替え（タイトルを隠して戻るボタンを表示）
-            document.getElementById('appTitle').style.display = 'none';
-            document.getElementById('headerCategoryInfo').style.display = 'block';
-            document.getElementById('headerCategoryName').textContent = categoryName;
-            document.getElementById('headerBackBtn').style.display = 'block';
-            
-            renderTable();
+        window.showCategory = (categoryName) => {
+            // list.html へ遷移（カテゴリ名をパラメータで渡す）
+            window.location.href = `list.html?category=${encodeURIComponent(categoryName)}`;
         };
 
         // --- 描画ロジック ---
@@ -386,106 +87,49 @@
             const grid = document.getElementById('categoryGrid');
             grid.innerHTML = '';
 
-            // カテゴリの一覧を取得
-            const categories = [...new Set(state.products.map(p => p.category))].sort();
+            // カテゴリごとに商品をグループ化
+            const categoryGroups = state.products.reduce((groups, product) => {
+                const cat = product.category;
+                if (!groups[cat]) groups[cat] = [];
+                groups[cat].push(product);
+                return groups;
+            }, {});
 
-            categories.forEach(cat => {
-                // そのカテゴリに含まれる製品を取得
-                const items = state.products.filter(p => p.category === cat);
-                // 在庫不足のアイテムがあるかチェック
-                const alerts = items.filter(p => {
-                    return isLowStock(p);
-                }).length;
-
-                // ★カテゴリ内の商品から最新の更新日時を探す
-                let lastUpdated = '---';
-                const timestamps = items
-                    .map(p => p.lastUpdated)
-                    .filter(d => d) // 空でないものだけ
-                    .sort()
-                    .reverse(); // 新しい順
-                
-                if (timestamps.length > 0) {
-                    lastUpdated = formatDateShort(timestamps[0]);
-                }
-
-                const card = document.createElement('div');
-                card.className = 'category-card';
-                card.onclick = () => showCategory(cat);
-                
-                card.innerHTML = `
-                    <h3>${cat}</h3>
-                    <div class="count">${items.length} 商品</div>
-                    ${alerts > 0 ? `<span class="alert">⚠️ ${alerts}件の在庫不足</span>` : '<span style="color:#4CAF50; font-size:0.8rem">✅ 正常</span>'}
-                    <div class="last-updated">最終更新: ${lastUpdated}</div>
-                `;
+            // カテゴリ名でソートして表示
+            Object.keys(categoryGroups).sort().forEach(cat => {
+                const card = createCategoryCard(cat, categoryGroups[cat]);
                 grid.appendChild(card);
             });
         }
 
-        // 2. リスト画面：テーブルの描画
-        function renderTable() {
-            const tbody = document.querySelector('#inventoryTable tbody');
-            tbody.innerHTML = '';
+        // カテゴリカードの生成
+        function createCategoryCard(cat, items) {
+            // 在庫不足のアイテムがあるかチェック
+            const alerts = items.filter(p => isLowStock(p, state.currentMonth)).length;
 
-            // 選択中のカテゴリでフィルタリング
-            const filteredProducts = state.products.filter(p => p.category === state.currentCategoryFilter);
-
-            document.getElementById('headerLastUpdated').textContent = '';
-
-            filteredProducts.forEach(product => {
-                const threshold = getThreshold(product, state.currentMonth);
-                const lowStock = isLowStock(product);
-
-                const tr = document.createElement('tr');
-                if (lowStock) tr.classList.add('low-stock');
-
-                const lastUpdated = formatDateShort(product.lastUpdated);
-
-                tr.innerHTML = `
-                    <td>
-                        <div>${product.name}</div>
-                        <div style="font-size: 0.75rem; color: #999; font-weight: normal; margin-top: 2px;">更新: ${lastUpdated}</div>
-                    </td>
-                    <td>
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 5px;">
-                            <input type="number" value="${product.stock}" min="0" oninput="updateStock(${product.id}, this)" onfocus="this.select()">
-                            <span style="color:#666; font-size:0.9rem;">/ ${threshold}</span>
-                        </div>
-                    </td>
-                    <td>
-                        <textarea rows="1" placeholder="備考" onchange="updateRemarks(${product.id}, this.value)" oninput="this.style.height = 'auto'; this.style.height = (this.scrollHeight) + 'px';">${product.remarks}</textarea>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        // --- ヘルパー関数 ---
-
-        function formatDateShort(dateStr) {
-            if (!dateStr || dateStr === '---') return '---';
+            // カテゴリ内の最新更新日時を探す
+            let lastUpdated = '---';
+            const timestamps = items
+                .map(p => p.lastUpdated)
+                .filter(Boolean)
+                .sort()
+                .reverse();
             
-            const date = new Date(dateStr);
-            if (isNaN(date.getTime())) return dateStr;
-
-            const month = date.getMonth() + 1;
-            const day = date.getDate();
-            const hours = date.getHours().toString().padStart(2, '0');
-            const minutes = date.getMinutes().toString().padStart(2, '0');
-            return `${month}/${day} ${hours}:${minutes}`;
-        }
-
-        function getThreshold(product, month) {
-            if (product.monthlyOverrides && product.monthlyOverrides[month] !== undefined) {
-                return product.monthlyOverrides[month];
+            if (timestamps.length > 0) {
+                lastUpdated = formatDateShort(timestamps[0]);
             }
-            return product.defaultThreshold;
-        }
 
-        function isLowStock(product) {
-            const threshold = getThreshold(product, state.currentMonth);
-            return product.stock < threshold;
+            const card = document.createElement('div');
+            card.className = 'category-card';
+            card.onclick = () => showCategory(cat);
+            
+            card.innerHTML = `
+                <h3>${cat}</h3>
+                <div class="count">${items.length} 商品</div>
+                ${alerts > 0 ? `<span class="alert">⚠️ ${alerts}件の在庫不足</span>` : '<span style="color:#4CAF50; font-size:0.8rem">✅ 正常</span>'}
+                <div class="last-updated">最終更新: ${lastUpdated}</div>
+            `;
+            return card;
         }
 
         function setupMonthSelector() {
@@ -517,118 +161,13 @@
             }
         }
 
-        // データを送信する関数（Promiseを返す）
-        function sendData(data) {
-            if (!API_URL) return;
-            return fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify(data)
-            });
-        }
-
         // --- イベントハンドラ ---
 
         window.changeMonth = (val) => {
             state.currentMonth = parseInt(val, 10);
-            // 現在表示中の画面に合わせて再描画
-            if (state.currentCategoryFilter) {
-                renderTable();
-            } else {
-                renderCategoryGrid();
-            }
+            sessionStorage.setItem('currentMonth', state.currentMonth); // 設定を保存
+            renderCategoryGrid();
         };
-
-        window.updateStock = (id, inputElement) => {
-            const newValue = inputElement.value;
-            const product = state.products.find(p => p.id === id);
-            if (product) {
-                product.stock = parseInt(newValue, 10);
-                if (isNaN(product.stock)) product.stock = 0; // 空欄等の対策
-
-                // 色判定の更新（再描画せずにDOMを直接操作してフォーカスを維持）
-                const lowStock = isLowStock(product);
-                const tr = inputElement.closest('tr');
-                if (tr) {
-                    lowStock ? tr.classList.add('low-stock') : tr.classList.remove('low-stock');
-                }
-
-                markAsModified(id); // 変更を記録
-            }
-        };
-
-        window.updateRemarks = (id, newText) => {
-            const product = state.products.find(p => p.id === id);
-            if (product) {
-                // 備考欄の高さ調整のため、データ更新のみで再描画はしない
-                product.remarks = newText;
-                markAsModified(id); // 変更を記録
-            }
-        };
-
-        // 変更があったことを記録し、保存ボタンを有効化
-        function markAsModified(id) {
-            state.modifiedProductIds.add(id);
-            const btn = document.getElementById('saveBtn');
-            btn.disabled = false;
-            btn.textContent = `保存する (${state.modifiedProductIds.size})`;
-        }
-
-        // 一括保存処理
-        window.saveAllChanges = async () => {
-            const btn = document.getElementById('saveBtn');
-            if (state.modifiedProductIds.size === 0) return;
-
-            btn.disabled = true;
-            btn.textContent = '保存中...';
-
-            try {
-                const updates = [];
-
-                // 変更されたデータを収集
-                state.modifiedProductIds.forEach(id => {
-                    const p = state.products.find(prod => prod.id === id);
-                    if (p) {
-                        updates.push({ id: p.id, stock: p.stock, remarks: p.remarks });
-                    }
-                });
-
-                // GASへ一括送信（配列として送信）
-                await sendData(updates);
-
-                // 保存完了後、最新の更新日時（サーバー側で更新された日時）を反映するために再読み込み
-                await loadData();
-
-                // 状態リセット
-                state.modifiedProductIds.clear();
-                btn.textContent = '保存する';
-                showToast('保存しました');
-
-            } catch (e) {
-                console.error(e);
-                alert('保存中にエラーが発生しました');
-                btn.disabled = false;
-                btn.textContent = `保存する (${state.modifiedProductIds.size})`;
-            }
-        };
-
-        // トースト表示関数
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000); // 3秒後に非表示
-        }
-
-        // 未保存の変更がある場合に警告を表示
-        window.addEventListener('beforeunload', (e) => {
-            if (state.modifiedProductIds.size > 0) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
 
         // 開始
         init();
