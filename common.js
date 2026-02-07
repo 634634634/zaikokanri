@@ -30,3 +30,32 @@ function isLowStock(product, month) {
     const threshold = getThreshold(product, month);
     return product.stock < threshold;
 }
+
+// 初期月の取得 (セッションストレージ または 現在月)
+function getInitialMonth() {
+    return parseInt(sessionStorage.getItem('currentMonth')) || (new Date().getMonth() + 1);
+}
+
+// 月選択プルダウンの生成
+function setupMonthSelector(selectId, currentMonth) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    select.innerHTML = '';
+    for (let i = 1; i <= 12; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = `${i}月`;
+        if (i === currentMonth) option.selected = true;
+        select.appendChild(option);
+    }
+}
+
+// データ保存 (API通信)
+async function postData(data) {
+    return fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(data)
+    });
+}
