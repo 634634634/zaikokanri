@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>在庫管理システム</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">
     <link rel="stylesheet" href="style.css">
     <style>
         /* ▼▼▼ ホーム画面（カテゴリカード）のデザイン ▼▼▼ */
@@ -61,6 +62,9 @@
         // データの取得を先行して開始（表示速度向上）
         const fetchPromise = API_URL ? fetch(API_URL).then(r => r.json()) : null;
 
+        // ★ここに表示したいカテゴリの順番を定義します。この配列にないカテゴリは末尾に五十音順で表示されます。
+        const CATEGORY_ORDER = [/* '醤油', '味噌','納豆', 'その他' */];
+
         // 状態管理
         const state = {
             products: [],
@@ -101,7 +105,19 @@
             }, {});
 
             // カテゴリ名でソートして表示
-            Object.keys(categoryGroups).sort().forEach(cat => {
+            Object.keys(categoryGroups).sort((a, b) => {
+                const indexA = CATEGORY_ORDER.indexOf(a);
+                const indexB = CATEGORY_ORDER.indexOf(b);
+
+                // 両方が定義にあれば、その順でソート
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                // Aだけ定義にあれば、Aを先に
+                if (indexA !== -1) return -1;
+                // Bだけ定義にあれば、Bを先に
+                if (indexB !== -1) return 1;
+                // どちらも定義になければ、五十音順でソート
+                return a.localeCompare(b, 'ja');
+            }).forEach(cat => {
                 const card = createCategoryCard(cat, categoryGroups[cat]);
                 fragment.appendChild(card);
             });
