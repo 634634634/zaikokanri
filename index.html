@@ -62,8 +62,9 @@
         // データの取得を先行して開始（表示速度向上）
         const fetchPromise = API_URL ? fetch(API_URL).then(r => r.json()) : null;
 
-        // ★ここに表示したいカテゴリの順番を定義します。この配列にないカテゴリは末尾に五十音順で表示されます。
-        const CATEGORY_ORDER = [/* '醤油', '味噌','納豆', 'その他' */];
+        // ★カテゴリの表示順をここで指定します。例: ['備品', '消耗品', '機材']
+        // この配列にないカテゴリは、末尾に五十音順で表示されます。
+        const CATEGORY_ORDER = ['醤油', '味噌', '納豆','その他'];
 
         // 状態管理
         const state = {
@@ -98,7 +99,8 @@
 
             // カテゴリごとに商品をグループ化
             const categoryGroups = state.products.reduce((groups, product) => {
-                const cat = product.category;
+                // カテゴリ名の前後の空白を削除して、意図しない不一致を防ぐ
+                const cat = product.category.trim();
                 if (!groups[cat]) groups[cat] = [];
                 groups[cat].push(product);
                 return groups;
